@@ -6,6 +6,7 @@
 // appropriate within reaction_o()/reaction_h().
 void make_water();
 
+//initialize the struct variables and reset the counters to 0
 void reaction_init(struct reaction *reaction)
 {
 	// FILL ME IN
@@ -16,19 +17,21 @@ void reaction_init(struct reaction *reaction)
 	pthread_cond_init(&(reaction->condO), NULL);
 }
 
+//this function is to create a new hydrogen atom and increment the counter by 1
+//and checks if there is sufficient H and O atoms to make the water reaction
 void reaction_h(struct reaction *reaction)
 {
-	//one H atom will increment this value at a time and 
+	//aquire the lock
 	pthread_mutex_lock( &reaction->mutex );
 
 	reaction->no_of_h++;
 
-	if(reaction->no_of_h < 2){
+	if(reaction->no_of_h < 2 || (reaction->no_of_o)<1){
 		pthread_cond_wait(&reaction->condO,&reaction->mutex);
 	}
-	else if(reaction->no_of_h >=2 && (reaction->no_of_o)<1){
-		pthread_cond_wait(&reaction->condO,&reaction->mutex);
-	}
+
+	//if there is sufficient H and O atoms make water and signal the waited threads
+	//on the condition condO and condH and decrement the counters 
 	else{
 		pthread_cond_signal(&reaction->condO);
 		pthread_cond_signal(&reaction->condH);
@@ -37,19 +40,22 @@ void reaction_h(struct reaction *reaction)
 		make_water();
 	}
 
-  	// wake up the main thread (if it is sleeping) to test the value of done  
+  	// release the lock  
 	pthread_mutex_unlock( & reaction->mutex );
 
 }
 
+//this function is to create a new oxygen atom and increment the counter by 1
+//and checks if there is sufficient H and O atoms to make the water reaction
 void reaction_o(struct reaction *reaction)
 {
-	//one O atom will increment this value at a time and 
-
+	//aquire the lock
 	pthread_mutex_lock( &reaction->mutex );
 
 	reaction->no_of_o++;
 
+	//if there is sufficient H atoms make water and signal the waited threads
+	//on the condition condO and decrement the counters 
 	if(reaction->no_of_h >= 2){
 		pthread_cond_signal(&reaction->condO);
 		pthread_cond_signal(&reaction->condO);
@@ -57,10 +63,11 @@ void reaction_o(struct reaction *reaction)
 		reaction->no_of_o -= 1;
 		make_water();
 	}
+
 	else{
 		pthread_cond_wait(&reaction->condH, &reaction->mutex);
 	}
-
-  	// wake up the main thread (if it is sleeping) to test the value of done  
+  
+  	// release the lock
 	pthread_mutex_unlock( & reaction->mutex );
 }
